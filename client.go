@@ -10,9 +10,13 @@ import (
 	"os"
 )
 
+type httpClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
 type OpenAI struct {
 	baseUrl string
-	client  *http.Client
+	client  httpClient
 	key     string
 }
 
