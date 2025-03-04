@@ -68,14 +68,8 @@ func (o *OpenAI) GetEmbedding(payload GetEmbeddingPayload) ([]float64, error) {
 	}
 	defer response.Body.Close()
 
-	responseText, err := io.ReadAll(response.Body)
-	if err != nil {
-		return nil, fmt.Errorf("error reading response body: %w", err)
-	}
-
 	var responseBody GetEmbeddingResponse
-
-	if err := json.Unmarshal(responseText, &responseBody); err != nil {
+	if err := json.NewDecoder(response.Body).Decode(&responseBody); err != nil {
 		return nil, fmt.Errorf("error unmarshaling response body: %w", err)
 	}
 
