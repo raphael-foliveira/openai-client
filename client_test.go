@@ -134,7 +134,7 @@ func TestGetEmbedding_ClientError(t *testing.T) {
 // TestGetCompletion_Success verifies a simple completion without tool calls.
 func TestGetCompletion_Success(t *testing.T) {
 	// Create a fake completion response (no tool calls).
-	completionMessage := LLMMessage{
+	completionMessage := Message{
 		Role:    "assistant",
 		Content: "Hello world",
 	}
@@ -163,14 +163,14 @@ func TestGetCompletion_Success(t *testing.T) {
 
 	payload := &CompletionRequestPayload{
 		Model:    "test-model",
-		Messages: []LLMMessage{{Role: "user", Content: "Hi"}},
+		Messages: []Message{{Role: "user", Content: "Hi"}},
 	}
 
 	result, err := client.GetCompletion(payload)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	if result != "Hello world" {
+	if result.Content != "Hello world" {
 		t.Errorf("expected 'Hello world', got '%s'", result)
 	}
 }
@@ -186,7 +186,7 @@ func TestGetCompletion_WithToolCalls(t *testing.T) {
 			Arguments: "test argument",
 		},
 	}
-	messageWithTool := LLMMessage{
+	messageWithTool := Message{
 		Role:      "assistant",
 		ToolCalls: []ToolCall{toolCall},
 	}
@@ -202,7 +202,7 @@ func TestGetCompletion_WithToolCalls(t *testing.T) {
 	respBody1, _ := json.Marshal(completionResponse1)
 
 	// Second response: final assistant message with content and no tool calls.
-	finalMessage := LLMMessage{
+	finalMessage := Message{
 		Role:    "assistant",
 		Content: "Final answer",
 	}
@@ -239,7 +239,7 @@ func TestGetCompletion_WithToolCalls(t *testing.T) {
 
 	payload := &CompletionRequestPayload{
 		Model:    "test-model",
-		Messages: []LLMMessage{{Role: "user", Content: "Hi"}},
+		Messages: []Message{{Role: "user", Content: "Hi"}},
 		Tools:    []ToolDefinition{toolDef},
 	}
 
@@ -247,7 +247,7 @@ func TestGetCompletion_WithToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	if result != "Final answer" {
+	if result.Content != "Final answer" {
 		t.Errorf("expected 'Final answer', got '%s'", result)
 	}
 
@@ -281,7 +281,7 @@ func TestGetCompletion_OpenAiRequestError(t *testing.T) {
 
 	payload := &CompletionRequestPayload{
 		Model:    "test-model",
-		Messages: []LLMMessage{{Role: "user", Content: "Hi"}},
+		Messages: []Message{{Role: "user", Content: "Hi"}},
 	}
 
 	_, err := client.GetCompletion(payload)

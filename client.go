@@ -38,17 +38,11 @@ func NewDefaultOpenAI() *OpenAI {
 	return NewOpenAI("", "")
 }
 
-func (o *OpenAI) GetCompletion(payload *CompletionRequestPayload) (string, error) {
+func (o *OpenAI) GetCompletion(payload *CompletionRequestPayload) (*Message, error) {
 	if payload.Model == "" {
 		payload.Model = os.Getenv("OPENAI_MODEL")
 	}
-
-	content, err := o.performReActLoop(payload, 5)
-	if err != nil {
-		return content, err
-	}
-
-	return content, nil
+	return o.performReActLoop(payload, 5)
 }
 
 func (o *OpenAI) GetEmbedding(payload GetEmbeddingPayload) ([]float64, error) {
@@ -84,10 +78,10 @@ func (o *OpenAI) createAuthorizedRequest(method, endpoint string, body io.Reader
 	return createAuthorizedRequest(method, o.endpoint(endpoint), body, o.key)
 }
 
-func (o *OpenAI) performReActLoop(payload *CompletionRequestPayload, maxIterations int) (string, error) {
+func (o *OpenAI) performReActLoop(payload *CompletionRequestPayload, maxIterations int) (*Message, error) {
 	for range maxIterations {
 		if err := o.openAiRequest(payload); err != nil {
-			return "", err
+			return nil, err
 		}
 
 		responseBody := payload.Messages[len(payload.Messages)-1]
@@ -98,15 +92,15 @@ func (o *OpenAI) performReActLoop(payload *CompletionRequestPayload, maxIteratio
 				log.Println("final response:")
 				log.Println(content)
 			}
-			return content, nil
+			return &responseBody, nil
 		}
 
 		if err := o.handleToolCalls(payload); err != nil {
-			return "", fmt.Errorf("error handling tool calls: %w", err)
+			return nil, fmt.Errorf("error handling tool calls: %w", err)
 		}
 	}
 
-	return "", fmt.Errorf("reached max iterations without finalizing an answer")
+	return nil, fmt.Errorf("reached max iterations without finalizing an answer")
 }
 
 func (o *OpenAI) handleToolCalls(payload *CompletionRequestPayload) error {
@@ -127,7 +121,7 @@ func (o *OpenAI) handleToolCalls(payload *CompletionRequestPayload) error {
 
 		result := tool.Fn(arguments)
 
-		payload.Messages = append(payload.Messages, LLMMessage{
+		payload.Messages = append(payload.Messages, Message{
 			Role:       "tool",
 			Content:    result,
 			ToolCallId: toolCall.Id,

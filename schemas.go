@@ -40,7 +40,7 @@ type (
 		Function *FunctionDefinition `json:"function"`
 	}
 
-	LLMMessage struct {
+	Message struct {
 		Role       string     `json:"role"`
 		Content    string     `json:"content"`
 		ToolCalls  []ToolCall `json:"tool_calls,omitempty"`
@@ -55,7 +55,7 @@ type (
 
 	CompletionRequestPayload struct {
 		Model      string           `json:"model,omitempty"`
-		Messages   []LLMMessage     `json:"messages"`
+		Messages   []Message        `json:"messages"`
 		Tools      []ToolDefinition `json:"tools,omitempty"`
 		ToolChoice any              `json:"tool_choice,omitempty"`
 	}
@@ -67,8 +67,8 @@ type (
 	}
 
 	LLMChoice struct {
-		Index   int         `json:"index"`
-		Message *LLMMessage `json:"message"`
+		Index   int      `json:"index"`
+		Message *Message `json:"message"`
 	}
 
 	CompletionResponse struct {
