@@ -10,6 +10,11 @@ import (
 	"os"
 )
 
+const (
+	completionsEndpont = "/v1/chat/completions"
+	embeddingsEndpoint = "/v1/embeddings"
+)
+
 type httpClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
@@ -51,7 +56,7 @@ func (o *OpenAI) GetEmbedding(payload GetEmbeddingPayload) ([]float64, error) {
 		return nil, fmt.Errorf("error marshaling request payload: %w", err)
 	}
 
-	request, err := o.createAuthorizedRequest("POST", "/v1/embeddings", bytes.NewReader(requestBody))
+	request, err := o.createAuthorizedRequest(http.MethodPost, embeddingsEndpoint, bytes.NewReader(requestBody))
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +141,7 @@ func (o *OpenAI) openAiRequest(payload *CompletionRequestPayload) error {
 		return fmt.Errorf("error marshaling request payload: %w", err)
 	}
 
-	request, err := o.createAuthorizedRequest("POST", "/v1/chat/completions", bytes.NewReader(requestBody))
+	request, err := o.createAuthorizedRequest(http.MethodPost, completionsEndpont, bytes.NewReader(requestBody))
 	if err != nil {
 		return err
 	}
