@@ -47,7 +47,7 @@ func TestNewOpenAIDefaults(t *testing.T) {
 	t.Setenv("OPENAI_BASE_URL", "http://env-url.com")
 	t.Setenv("OPENAI_API_KEY", "env-key")
 
-	client := NewOpenAI("", "")
+	client := New("", "")
 	if client.baseUrl != "http://env-url.com" {
 		t.Errorf("expected baseUrl to be 'http://env-url.com', got '%s'", client.baseUrl)
 	}
@@ -82,7 +82,7 @@ func TestGetEmbedding_Success(t *testing.T) {
 		},
 	}
 
-	client := NewOpenAI("http://example.com", "test-key")
+	client := New("http://example.com", "test-key")
 	client.client = fakeClient // override with our fake client
 
 	payload := GetEmbeddingPayload{
@@ -114,7 +114,7 @@ func TestGetEmbedding_ClientError(t *testing.T) {
 		},
 	}
 
-	client := NewOpenAI("http://example.com", "test-key")
+	client := New("http://example.com", "test-key")
 	client.client = fakeClient
 
 	payload := GetEmbeddingPayload{
@@ -158,7 +158,7 @@ func TestGetCompletion_Success(t *testing.T) {
 		},
 	}
 
-	client := NewOpenAI("http://example.com", "test-key")
+	client := New("http://example.com", "test-key")
 	client.client = fakeClient
 
 	payload := &CompletionRequestPayload{
@@ -225,7 +225,7 @@ func TestGetCompletion_WithToolCalls(t *testing.T) {
 		},
 	}
 
-	client := NewOpenAI("http://example.com", "test-key")
+	client := New("http://example.com", "test-key")
 	client.client = seqClient
 
 	// Define a tool named "echo" whose function simply returns a modified string.
@@ -276,7 +276,7 @@ func TestGetCompletion_OpenAiRequestError(t *testing.T) {
 		},
 	}
 
-	client := NewOpenAI("http://example.com", "test-key")
+	client := New("http://example.com", "test-key")
 	client.client = fakeClient
 
 	payload := &CompletionRequestPayload{

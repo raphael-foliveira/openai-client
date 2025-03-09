@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 )
@@ -25,9 +25,12 @@ type OpenAI struct {
 	MaxIterations int
 }
 
-func NewOpenAI(baseUrl, apiKey string) *OpenAI {
+func New(baseUrl, apiKey string) *OpenAI {
 	if baseUrl == "" {
 		baseUrl = os.Getenv("OPENAI_BASE_URL")
+		if baseUrl == "" {
+			baseUrl = "https://api.openai.com"
+		}
 	}
 	if apiKey == "" {
 		apiKey = os.Getenv("OPENAI_API_KEY")
@@ -40,13 +43,16 @@ func NewOpenAI(baseUrl, apiKey string) *OpenAI {
 	}
 }
 
-func NewDefaultOpenAI() *OpenAI {
-	return NewOpenAI("", "")
+func NewDefault() *OpenAI {
+	return New("", "")
 }
 
 func (o *OpenAI) GetCompletion(payload *CompletionRequestPayload) (*Message, error) {
 	if payload.Model == "" {
 		payload.Model = os.Getenv("OPENAI_MODEL")
+		if payload.Model == "" {
+			payload.Model = "gpt-4o-mini"
+		}
 	}
 	return o.performReActLoop(payload, o.MaxIterations)
 }
@@ -66,9 +72,17 @@ func (o *OpenAI) GetEmbedding(payload GetEmbeddingPayload) ([]float64, error) {
 		return nil, fmt.Errorf("error making request: %w", err)
 	}
 	defer response.Body.Close()
+	responseText, err := io.ReadAll(response.Body)
+	if err != nil {
+		return nil, fmt.Errorf("error reading response body: %w", err)
+	}
+
+	if response.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("request failed with status code %d. response: \n%s", response.StatusCode, string(responseText))
+	}
 
 	var responseBody GetEmbeddingResponse
-	if err := json.NewDecoder(response.Body).Decode(&responseBody); err != nil {
+	if err := json.Unmarshal(responseText, &responseBody); err != nil {
 		return nil, fmt.Errorf("error unmarshaling response body: %w", err)
 	}
 
@@ -94,8 +108,7 @@ func (o *OpenAI) performReActLoop(payload *CompletionRequestPayload, maxIteratio
 		if len(responseBody.ToolCalls) == 0 {
 			content := responseBody.Content
 			if content != "" {
-				log.Println("final response:")
-				log.Println(content)
+				slog.Info("final response", slog.String("content", content))
 			}
 			return &responseBody, nil
 		}
@@ -109,7 +122,7 @@ func (o *OpenAI) performReActLoop(payload *CompletionRequestPayload, maxIteratio
 }
 
 func (o *OpenAI) handleToolCalls(payload *CompletionRequestPayload) error {
-	log.Println("handling tool calls")
+	slog.Info("handling tool calls")
 
 	message := payload.Messages[len(payload.Messages)-1]
 
@@ -118,11 +131,11 @@ func (o *OpenAI) handleToolCalls(payload *CompletionRequestPayload) error {
 		arguments := toolCall.Function.Arguments
 		tool, toolFound := payload.toolsMap()[fnName]
 		if !toolFound {
-			log.Println("tool not found:", fnName)
+			slog.Warn("tool not found", slog.String("toolName", fnName))
 			continue
 		}
 
-		log.Println("calling tool:", fnName)
+		slog.Info("calling tool", slog.String("toolName", fnName))
 
 		result := tool.Fn(arguments)
 
@@ -154,6 +167,10 @@ func (o *OpenAI) getCompletion(payload *CompletionRequestPayload) error {
 	responseText, err := io.ReadAll(response.Body)
 	if err != nil {
 		return fmt.Errorf("error reading response body: %w", err)
+	}
+
+	if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("request failed with status code %d. response: \n%s", response.StatusCode, responseText)
 	}
 
 	var responseBody CompletionResponse
