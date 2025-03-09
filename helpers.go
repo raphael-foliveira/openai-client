@@ -1,13 +1,18 @@
 package openaiclient
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 )
 
-func createRequest(method, endpoint string, body io.Reader) (*http.Request, error) {
-	request, err := http.NewRequest(method, endpoint, body)
+func createRequest(method, endpoint string, body any) (*http.Request, error) {
+	bodyJson, err := json.Marshal(body)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling request body: %w", err)
+	}
+	request, err := http.NewRequest(method, endpoint, bytes.NewReader(bodyJson))
 	if err != nil {
 		return nil, fmt.Errorf("error creating request: %w", err)
 	}
@@ -17,7 +22,7 @@ func createRequest(method, endpoint string, body io.Reader) (*http.Request, erro
 	return request, nil
 }
 
-func createAuthorizedRequest(method, endpoint string, body io.Reader, bearer string) (*http.Request, error) {
+func createAuthorizedRequest(method, endpoint string, body any, bearer string) (*http.Request, error) {
 	request, err := createRequest(method, endpoint, body)
 	if err != nil {
 		return nil, fmt.Errorf("error creating authorized request: %w", err)

@@ -1,7 +1,6 @@
 package openaiclient
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -20,9 +19,10 @@ type httpClient interface {
 }
 
 type OpenAI struct {
-	baseUrl string
-	client  httpClient
-	key     string
+	baseUrl       string
+	client        httpClient
+	key           string
+	MaxIterations int
 }
 
 func NewOpenAI(baseUrl, apiKey string) *OpenAI {
@@ -33,9 +33,10 @@ func NewOpenAI(baseUrl, apiKey string) *OpenAI {
 		apiKey = os.Getenv("OPENAI_API_KEY")
 	}
 	return &OpenAI{
-		baseUrl: baseUrl,
-		client:  &http.Client{},
-		key:     apiKey,
+		baseUrl:       baseUrl,
+		client:        &http.Client{},
+		key:           apiKey,
+		MaxIterations: 5,
 	}
 }
 
@@ -47,16 +48,15 @@ func (o *OpenAI) GetCompletion(payload *CompletionRequestPayload) (*Message, err
 	if payload.Model == "" {
 		payload.Model = os.Getenv("OPENAI_MODEL")
 	}
-	return o.performReActLoop(payload, 5)
+	return o.performReActLoop(payload, o.MaxIterations)
 }
 
 func (o *OpenAI) GetEmbedding(payload GetEmbeddingPayload) ([]float64, error) {
-	requestBody, err := json.Marshal(payload)
-	if err != nil {
-		return nil, fmt.Errorf("error marshaling request payload: %w", err)
-	}
-
-	request, err := o.createAuthorizedRequest(http.MethodPost, embeddingsEndpoint, bytes.NewReader(requestBody))
+	request, err := o.createAuthorizedRequest(
+		http.MethodPost,
+		embeddingsEndpoint,
+		payload,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -79,13 +79,13 @@ func (o *OpenAI) endpoint(e string) string {
 	return fmt.Sprintf("%s%s", o.baseUrl, e)
 }
 
-func (o *OpenAI) createAuthorizedRequest(method, endpoint string, body io.Reader) (*http.Request, error) {
+func (o *OpenAI) createAuthorizedRequest(method, endpoint string, body any) (*http.Request, error) {
 	return createAuthorizedRequest(method, o.endpoint(endpoint), body, o.key)
 }
 
 func (o *OpenAI) performReActLoop(payload *CompletionRequestPayload, maxIterations int) (*Message, error) {
 	for range maxIterations {
-		if err := o.openAiRequest(payload); err != nil {
+		if err := o.getCompletion(payload); err != nil {
 			return nil, err
 		}
 
@@ -126,8 +126,8 @@ func (o *OpenAI) handleToolCalls(payload *CompletionRequestPayload) error {
 
 		result := tool.Fn(arguments)
 
-		payload.Messages = append(payload.Messages, Message{
-			Role:       "tool",
+		payload.AddMessages(Message{
+			Role:       MessageRoleTool,
 			Content:    result,
 			ToolCallId: toolCall.Id,
 		})
@@ -135,13 +135,12 @@ func (o *OpenAI) handleToolCalls(payload *CompletionRequestPayload) error {
 	return nil
 }
 
-func (o *OpenAI) openAiRequest(payload *CompletionRequestPayload) error {
-	requestBody, err := json.Marshal(payload)
-	if err != nil {
-		return fmt.Errorf("error marshaling request payload: %w", err)
-	}
-
-	request, err := o.createAuthorizedRequest(http.MethodPost, completionsEndpont, bytes.NewReader(requestBody))
+func (o *OpenAI) getCompletion(payload *CompletionRequestPayload) error {
+	request, err := o.createAuthorizedRequest(
+		http.MethodPost,
+		completionsEndpont,
+		payload,
+	)
 	if err != nil {
 		return err
 	}
@@ -158,12 +157,15 @@ func (o *OpenAI) openAiRequest(payload *CompletionRequestPayload) error {
 	}
 
 	var responseBody CompletionResponse
-
 	if err := json.Unmarshal(responseText, &responseBody); err != nil {
 		return fmt.Errorf("error unmarshaling response body: %w", err)
 	}
 
-	payload.Messages = append(payload.Messages, *responseBody.Choices[0].Message)
+	if len(responseBody.Choices) == 0 {
+		return fmt.Errorf("no choices returned")
+	}
+
+	payload.AddMessages(*responseBody.Choices[0].Message)
 
 	return nil
 }

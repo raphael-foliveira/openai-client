@@ -1,5 +1,15 @@
 package openaiclient
 
+type MessageRole string
+
+var (
+	MessageRoleUser      MessageRole = "user"
+	MessageRoleAssistant MessageRole = "assistant"
+	MessageRoleSystem    MessageRole = "system"
+	MessageRoleDeveloper MessageRole = "developer"
+	MessageRoleTool      MessageRole = "tool"
+)
+
 type (
 	JsonSchemaProperties map[string]*JsonSchema
 	JsonSchema           struct {
@@ -41,11 +51,11 @@ type (
 	}
 
 	Message struct {
-		Role       string     `json:"role"`
-		Content    string     `json:"content"`
-		ToolCalls  []ToolCall `json:"tool_calls,omitempty"`
-		Name       string     `json:"name,omitempty"`
-		ToolCallId string     `json:"tool_call_id,omitempty"`
+		Role       MessageRole `json:"role"`
+		Content    string      `json:"content"`
+		ToolCalls  []ToolCall  `json:"tool_calls,omitempty"`
+		Name       string      `json:"name,omitempty"`
+		ToolCallId string      `json:"tool_call_id,omitempty"`
 	}
 
 	GetEmbeddingPayload struct {
@@ -54,10 +64,11 @@ type (
 	}
 
 	CompletionRequestPayload struct {
-		Model      string           `json:"model,omitempty"`
-		Messages   []Message        `json:"messages"`
-		Tools      []ToolDefinition `json:"tools,omitempty"`
-		ToolChoice any              `json:"tool_choice,omitempty"`
+		Model       string           `json:"model,omitempty"`
+		Messages    []Message        `json:"messages"`
+		NewMessages []Message        `json:"-"`
+		Tools       []ToolDefinition `json:"tools,omitempty"`
+		ToolChoice  any              `json:"tool_choice,omitempty"`
 	}
 
 	LLMUsage struct {
@@ -105,4 +116,9 @@ func NewToolDefinition(functionDefinition *FunctionDefinition) ToolDefinition {
 		Type:     "function",
 		Function: functionDefinition,
 	}
+}
+
+func (c *CompletionRequestPayload) AddMessages(messages ...Message) {
+	c.Messages = append(c.Messages, messages...)
+	c.NewMessages = append(c.NewMessages, messages...)
 }
