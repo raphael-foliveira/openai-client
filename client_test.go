@@ -78,10 +78,7 @@ func TestGetEmbedding_Success(t *testing.T) {
 		},
 	}
 
-	client, err := New("http://example.com", "test-key")
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
+	client := createClient(t)
 	client.client = fakeClient
 
 	payload := GetEmbeddingPayload{
@@ -112,10 +109,7 @@ func TestGetEmbedding_ClientError(t *testing.T) {
 		},
 	}
 
-	client, err := New("http://example.com", "test-key")
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
+	client := createClient(t)
 	client.client = fakeClient
 
 	payload := GetEmbeddingPayload{
@@ -155,10 +149,7 @@ func TestGetCompletion_Success(t *testing.T) {
 		},
 	}
 
-	client, err := New("http://example.com", "test-key")
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
+	client := createClient(t)
 	client.client = fakeClient
 
 	payload := &CompletionRequestPayload{
@@ -221,10 +212,7 @@ func TestGetCompletion_WithToolCalls(t *testing.T) {
 		},
 	}
 
-	client, err := New("http://example.com", "test-key")
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
+	client := createClient(t)
 	client.client = seqClient
 
 	echoFn := func(args string) string {
@@ -268,10 +256,7 @@ func TestGetCompletion_OpenAiRequestError(t *testing.T) {
 		},
 	}
 
-	client, err := New("http://example.com", "test-key")
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
+	client := createClient(t)
 	client.client = fakeClient
 
 	payload := &CompletionRequestPayload{
@@ -298,4 +283,13 @@ func TestCreateAuthorizedRequest(t *testing.T) {
 	if authHeader != "Bearer test-key" {
 		t.Errorf("expected Authorization header 'Bearer test-key', got '%s'", authHeader)
 	}
+}
+
+func createClient(t *testing.T) *OpenAI {
+	t.Helper()
+	client, err := New("http://example.com", "test-key")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	return client
 }
