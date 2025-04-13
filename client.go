@@ -111,7 +111,7 @@ func (o *OpenAI) performReActLoop(payload *CompletionRequestPayload, maxIteratio
 		if len(responseBody.ToolCalls) == 0 {
 			content := responseBody.Content
 			if content != "" {
-				slog.Info("final response", slog.String("content", content))
+				slog.Debug("final response", slog.String("content", content))
 			}
 			return &responseBody, nil
 		}
@@ -125,7 +125,7 @@ func (o *OpenAI) performReActLoop(payload *CompletionRequestPayload, maxIteratio
 }
 
 func (o *OpenAI) handleToolCalls(payload *CompletionRequestPayload) error {
-	slog.Info("handling tool calls")
+	slog.Debug("handling tool calls")
 
 	message := payload.Messages[len(payload.Messages)-1]
 
@@ -138,7 +138,7 @@ func (o *OpenAI) handleToolCalls(payload *CompletionRequestPayload) error {
 			continue
 		}
 
-		slog.Info("calling tool", slog.String("toolName", fnName))
+		slog.Debug("calling tool", slog.String("toolName", fnName))
 
 		result := tool.Fn(arguments)
 
