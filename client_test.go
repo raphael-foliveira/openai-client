@@ -9,7 +9,6 @@ import (
 	"testing"
 )
 
-// FakeClient is a simple fake httpClient implementation.
 type FakeClient struct {
 	DoFunc func(req *http.Request) (*http.Response, error)
 }
@@ -18,7 +17,6 @@ func (f *FakeClient) Do(req *http.Request) (*http.Response, error) {
 	return f.DoFunc(req)
 }
 
-// SequentialFakeClient allows simulating a sequence of HTTP responses.
 type SequentialFakeClient struct {
 	Responses []*http.Response
 	CallCount int
@@ -33,7 +31,6 @@ func (s *SequentialFakeClient) Do(req *http.Request) (*http.Response, error) {
 	return resp, nil
 }
 
-// fakeResponse is a helper to create an HTTP response with a given body.
 func fakeResponse(status int, body string) *http.Response {
 	return &http.Response{
 		StatusCode: status,
@@ -41,13 +38,14 @@ func fakeResponse(status int, body string) *http.Response {
 	}
 }
 
-// TestNewOpenAIDefaults verifies that NewOpenAI falls back to environment variables.
 func TestNewOpenAIDefaults(t *testing.T) {
-	// Use t.Setenv (Go 1.17+) to set env variables for the duration of this test.
 	t.Setenv("OPENAI_BASE_URL", "http://env-url.com")
 	t.Setenv("OPENAI_API_KEY", "env-key")
 
-	client := New("", "")
+	client, err := New("", "")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
 	if client.baseUrl != "http://env-url.com" {
 		t.Errorf("expected baseUrl to be 'http://env-url.com', got '%s'", client.baseUrl)
 	}
@@ -56,9 +54,7 @@ func TestNewOpenAIDefaults(t *testing.T) {
 	}
 }
 
-// TestGetEmbedding_Success simulates a successful GetEmbedding call.
 func TestGetEmbedding_Success(t *testing.T) {
-	// Create a fake embedding response.
 	embeddingResponse := GetEmbeddingResponse{
 		Object: "embedding",
 		Data: []EmbeddingObject{
@@ -82,8 +78,11 @@ func TestGetEmbedding_Success(t *testing.T) {
 		},
 	}
 
-	client := New("http://example.com", "test-key")
-	client.client = fakeClient // override with our fake client
+	client, err := New("http://example.com", "test-key")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	client.client = fakeClient
 
 	payload := GetEmbeddingPayload{
 		Model: "test-model",
@@ -106,7 +105,6 @@ func TestGetEmbedding_Success(t *testing.T) {
 	}
 }
 
-// TestGetEmbedding_ClientError verifies that an error from the HTTP client is handled.
 func TestGetEmbedding_ClientError(t *testing.T) {
 	fakeClient := &FakeClient{
 		DoFunc: func(req *http.Request) (*http.Response, error) {
@@ -114,7 +112,10 @@ func TestGetEmbedding_ClientError(t *testing.T) {
 		},
 	}
 
-	client := New("http://example.com", "test-key")
+	client, err := New("http://example.com", "test-key")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
 	client.client = fakeClient
 
 	payload := GetEmbeddingPayload{
@@ -122,18 +123,14 @@ func TestGetEmbedding_ClientError(t *testing.T) {
 		Input: "Hello",
 	}
 
-	_, err := client.GetEmbedding(payload)
-	if err == nil {
+	if _, err := client.GetEmbedding(payload); err == nil {
 		t.Fatalf("expected error, got nil")
-	}
-	if !strings.Contains(err.Error(), "client error") {
+	} else if !strings.Contains(err.Error(), "client error") {
 		t.Errorf("expected error to contain 'client error', got %v", err)
 	}
 }
 
-// TestGetCompletion_Success verifies a simple completion without tool calls.
 func TestGetCompletion_Success(t *testing.T) {
-	// Create a fake completion response (no tool calls).
 	completionMessage := Message{
 		Role:    "assistant",
 		Content: "Hello world",
@@ -158,7 +155,10 @@ func TestGetCompletion_Success(t *testing.T) {
 		},
 	}
 
-	client := New("http://example.com", "test-key")
+	client, err := New("http://example.com", "test-key")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
 	client.client = fakeClient
 
 	payload := &CompletionRequestPayload{
@@ -175,9 +175,7 @@ func TestGetCompletion_Success(t *testing.T) {
 	}
 }
 
-// TestGetCompletion_WithToolCalls simulates a conversation that involves a tool call.
 func TestGetCompletion_WithToolCalls(t *testing.T) {
-	// First response: the assistant message contains a tool call.
 	toolCall := ToolCall{
 		Id:   "tool1",
 		Type: "function",
@@ -201,7 +199,6 @@ func TestGetCompletion_WithToolCalls(t *testing.T) {
 	}
 	respBody1, _ := json.Marshal(completionResponse1)
 
-	// Second response: final assistant message with content and no tool calls.
 	finalMessage := Message{
 		Role:    "assistant",
 		Content: "Final answer",
@@ -217,7 +214,6 @@ func TestGetCompletion_WithToolCalls(t *testing.T) {
 	}
 	respBody2, _ := json.Marshal(completionResponse2)
 
-	// Set up a sequential fake client that returns the above responses.
 	seqClient := &SequentialFakeClient{
 		Responses: []*http.Response{
 			fakeResponse(200, string(respBody1)),
@@ -225,10 +221,12 @@ func TestGetCompletion_WithToolCalls(t *testing.T) {
 		},
 	}
 
-	client := New("http://example.com", "test-key")
+	client, err := New("http://example.com", "test-key")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
 	client.client = seqClient
 
-	// Define a tool named "echo" whose function simply returns a modified string.
 	echoFn := func(args string) string {
 		return "echo: " + args
 	}
@@ -251,11 +249,6 @@ func TestGetCompletion_WithToolCalls(t *testing.T) {
 		t.Errorf("expected 'Final answer', got '%s'", result)
 	}
 
-	// Verify that the tool call was handled: we expect the payload.Messages to now contain:
-	// 1. The original user message
-	// 2. The first assistant message (with tool call)
-	// 3. A tool response message (added by handleToolCalls)
-	// 4. The final assistant message.
 	if len(payload.Messages) != 4 {
 		t.Errorf("expected 4 messages in the payload, got %d", len(payload.Messages))
 	}
@@ -268,7 +261,6 @@ func TestGetCompletion_WithToolCalls(t *testing.T) {
 	}
 }
 
-// TestGetCompletion_OpenAiRequestError verifies that an error in openAiRequest is propagated.
 func TestGetCompletion_OpenAiRequestError(t *testing.T) {
 	fakeClient := &FakeClient{
 		DoFunc: func(req *http.Request) (*http.Response, error) {
@@ -276,7 +268,10 @@ func TestGetCompletion_OpenAiRequestError(t *testing.T) {
 		},
 	}
 
-	client := New("http://example.com", "test-key")
+	client, err := New("http://example.com", "test-key")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
 	client.client = fakeClient
 
 	payload := &CompletionRequestPayload{
@@ -284,16 +279,13 @@ func TestGetCompletion_OpenAiRequestError(t *testing.T) {
 		Messages: []Message{{Role: "user", Content: "Hi"}},
 	}
 
-	_, err := client.GetCompletion(payload)
-	if err == nil {
+	if _, err := client.GetCompletion(payload); err == nil {
 		t.Fatalf("expected an error, got nil")
-	}
-	if !strings.Contains(err.Error(), "openai request failed") {
+	} else if !strings.Contains(err.Error(), "openai request failed") {
 		t.Errorf("expected error message to contain 'openai request failed', got '%v'", err)
 	}
 }
 
-// TestCreateAuthorizedRequest verifies that the request is correctly created with the required headers.
 func TestCreateAuthorizedRequest(t *testing.T) {
 	req, err := createAuthorizedRequest("GET", "http://example.com/test", nil, "test-key")
 	if err != nil {

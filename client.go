@@ -25,7 +25,7 @@ type OpenAI struct {
 	MaxIterations int
 }
 
-func New(baseUrl, apiKey string) *OpenAI {
+func New(baseUrl, apiKey string) (*OpenAI, error) {
 	if baseUrl == "" {
 		baseUrl = os.Getenv("OPENAI_BASE_URL")
 		if baseUrl == "" {
@@ -34,16 +34,19 @@ func New(baseUrl, apiKey string) *OpenAI {
 	}
 	if apiKey == "" {
 		apiKey = os.Getenv("OPENAI_API_KEY")
+		if apiKey == "" {
+			return nil, NewAuthenticationError("OPENAI_API_KEY is not set")
+		}
 	}
 	return &OpenAI{
 		baseUrl:       baseUrl,
 		client:        &http.Client{},
 		key:           apiKey,
 		MaxIterations: 5,
-	}
+	}, nil
 }
 
-func NewDefault() *OpenAI {
+func NewDefault() (*OpenAI, error) {
 	return New("", "")
 }
 
@@ -78,7 +81,7 @@ func (o *OpenAI) GetEmbedding(payload GetEmbeddingPayload) ([]float64, error) {
 	}
 
 	if response.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("request failed with status code %d. response: \n%s", response.StatusCode, string(responseText))
+		return nil, NewOpenAIError(response.StatusCode, responseText)
 	}
 
 	var responseBody GetEmbeddingResponse
@@ -118,7 +121,7 @@ func (o *OpenAI) performReActLoop(payload *CompletionRequestPayload, maxIteratio
 		}
 	}
 
-	return nil, fmt.Errorf("reached max iterations without finalizing an answer")
+	return nil, NewInvalidRequestError("reached max iterations without finalizing an answer")
 }
 
 func (o *OpenAI) handleToolCalls(payload *CompletionRequestPayload) error {
@@ -170,7 +173,7 @@ func (o *OpenAI) getCompletion(payload *CompletionRequestPayload) error {
 	}
 
 	if response.StatusCode != http.StatusOK {
-		return fmt.Errorf("request failed with status code %d. response: \n%s", response.StatusCode, responseText)
+		return NewOpenAIError(response.StatusCode, responseText)
 	}
 
 	var responseBody CompletionResponse
@@ -179,7 +182,7 @@ func (o *OpenAI) getCompletion(payload *CompletionRequestPayload) error {
 	}
 
 	if len(responseBody.Choices) == 0 {
-		return fmt.Errorf("no choices returned")
+		return NewInvalidRequestError("no choices returned")
 	}
 
 	payload.AddMessages(*responseBody.Choices[0].Message)

@@ -9,7 +9,10 @@ import (
 )
 
 func main() {
-	c := openaiclient.NewDefault()
+	c, err := openaiclient.NewDefault()
+	if err != nil {
+		log.Fatalf("Error: %v", err)
+	}
 
 	payload := &openaiclient.CompletionRequestPayload{
 		Messages: []openaiclient.Message{
